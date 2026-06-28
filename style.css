@@ -135,7 +135,6 @@ body{
   display:flex;
   flex-direction:column;
   gap:8px;
-  flex:1;
 }
 .name-row{
   display:flex;
@@ -163,7 +162,8 @@ body{
   display:flex;
   flex-direction:column;
   gap:3px;
-  flex:1;
+  align-items: center;
+  flex: 1;
 }
 /* Trait vertical fin entre les stats */
 .stat-sep{
@@ -192,7 +192,7 @@ body{
 .card-a .stat .lbl{ color:#A6A29A; }
 
 .cta-row{
-  margin-top:auto;
+  margin-top:10px;
   padding:0 14px 14px;
 }
 .btn-contact{
