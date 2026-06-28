@@ -101,7 +101,7 @@ body{
 .card-a .photo-wrap{
   position:relative;
   width:100%;
-  height:3000px;
+  height:300px;
   flex:0 0 auto;
 }
 .card-a .photo-wrap img{
