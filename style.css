@@ -57,7 +57,7 @@ body{
 }
 .headline em{
   font-style: normal;
-  font-weight: 600;
+  font-weight:300;
   color:#5C5750;
 }
 
@@ -146,9 +146,9 @@ body{
 }
 .name-row svg{ flex:0 0 auto; }
 .bio{
-  font-size:11.9px;
+  font-size:12.5px;
   line-height:1.45;
-  font-weight:300;
+  font-weight:500;
 }
 .card-a .bio{ color:#7C7870; }
 
@@ -156,16 +156,13 @@ body{
 .stats-row{
   display:flex;
   align-items:center;
-  justify-content: center;
   margin-top:4px;
   gap:0;
 }
 .stat{
   display:flex;
   flex-direction:column;
-  align-items: center;
   gap:3px;
-  min-width: 52px;
   flex:1;
 }
 /* Trait vertical fin entre les stats */
@@ -363,10 +360,41 @@ body{
 }
 .save-later .check svg{ width:10px; height:10px; }
 
-@media (max-width:420px){
-  .frame{ padding:28px 18px 36px; border-radius:20px; }
-  .headline{ font-size:38px; margin-bottom:36px; }
-  .card-viewport{ width:240px; height:420px; }
+@media (max-width:480px){
+  .frame{ padding:24px 14px 32px; border-radius:20px; }
+  .headline{ font-size:clamp(28px, 9vw, 38px); margin-bottom:28px; }
+
+  /* Card plus large sur mobile pour que le texte respire */
+  .card-viewport{ width: min(88vw, 300px); height: 440px; }
+
+  /* Bio : taille réduite et line-height généreux pour éviter le débordement */
+  .bio{
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+
+  /* Stats : texte légèrement réduit */
+  .stat .val{ font-size: 12px; }
+  .stat .lbl{ font-size: 10px; }
+
+  /* Nom : évite le débordement si le nom est long */
+  .name-row{
+    font-size: 14px;
+    flex-wrap: wrap;
+  }
+
+  /* Info padding plus serré */
+  .card-a .info{ padding: 12px 14px 10px; gap: 6px; }
+
+  /* CTA padding */
+  .cta-row{ padding: 0 10px 10px; }
+
+  /* Footer : empile si trop serré */
+  .footer{
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 36px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce){
