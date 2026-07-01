@@ -12,6 +12,11 @@
 
 *{margin:0;padding:0;box-sizing:border-box;}
 
+html, body{
+  height:100%;
+  overflow:hidden; /* le site reste statique, jamais de scroll */
+}
+
 body{
   background:
     linear-gradient(var(--line) 1px, transparent 1px) 0 0/40px 40px,
@@ -19,11 +24,22 @@ body{
     var(--paper);
   font-family:'Inter', sans-serif;
   color:var(--ink);
-  min-height:100vh;
+  height:100vh;
+  height:100dvh; /* tient compte des barres d'interface mobiles qui varient */
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:40px 16px;
+  padding:16px;
+}
+
+/* Le wrapper est mis à l'échelle en JS pour toujours tenir dans l'écran,
+   sur ordinateur comme sur mobile, sans jamais déclencher de scroll. */
+.scale-wrap{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transform-origin:center center;
+  will-change:transform;
 }
 
 .frame{
@@ -34,6 +50,8 @@ body{
   border-radius:28px;
   padding:36px 32px 48px;
   background:rgba(244,241,234,0.4);
+  transform-origin:center center;
+  transition: transform 0.2s ease;
 }
 
 .frame-header{
@@ -50,14 +68,16 @@ body{
 .headline{
   text-align:center;
   font-family:'Playfair Display', serif;
+  font-weight:600; /* même famille/poids que les lettres A / B du switcher, sans être trop noir */
   font-size:clamp(40px, 7vw, 56px);
   line-height:1.05;
   margin-bottom:48px;
   letter-spacing:-0.01em;
+  color:#2B2A26; /* adouci plutôt qu'un noir pur, pour un bold moins lourd */
 }
 .headline em{
   font-style: normal;
-  font-weight:300;
+  font-weight:500;
   color:#5C5750;
 }
 
@@ -72,24 +92,46 @@ body{
 .card-viewport{
   position:relative;
   width:280px;
-  height:420px;
-  perspective:1600px;
+  height:452px; /* +32px : évite que la photo/le bookmark de la carte A soient rognés en haut (contenu > ancienne hauteur 420px) */
+}
+
+/* Masque de clip, statique (aucune transformation 3D) : c'est lui qui
+   porte l'arrondi + l'ombre + le clipping. En le séparant de l'élément
+   animé, on évite le bug Edge/Chrome où overflow:hidden + border-radius
+   cesse de fonctionner correctement sur un élément soumis à des
+   transformations 3D (rotateY, perspective). */
+.card-mask{
+  position:absolute;
+  inset:0;
+  border-radius:24px;
+  overflow:hidden;
+  clip-path: inset(0 round 24px);
+  box-shadow:0 18px 40px -12px rgba(20,18,14,0.28);
 }
 
 .card{
   position:absolute;
   inset:0;
-  border-radius:24px;
-  overflow:hidden;
-  box-shadow:0 18px 40px -12px rgba(20,18,14,0.28), 0 0 0 1px rgba(255,255,255,0.6);
   transition: transform 0.6s cubic-bezier(.65,0,.35,1), opacity 0.5s ease;
   backface-visibility:hidden;
 }
 
-.stage[data-active="A"] .card.card-a{ transform: translateX(0) rotateY(0deg) scale(1); opacity:1; z-index:2; pointer-events:auto;}
-.stage[data-active="A"] .card.card-b{ transform: translateX(40px) rotateY(35deg) scale(0.92); opacity:0; z-index:1; pointer-events:none;}
-.stage[data-active="B"] .card.card-b{ transform: translateX(0) rotateY(0deg) scale(1); opacity:1; z-index:2; pointer-events:auto;}
-.stage[data-active="B"] .card.card-a{ transform: translateX(-40px) rotateY(-35deg) scale(0.92); opacity:0; z-index:1; pointer-events:none;}
+/* perspective() est posé ICI, dans chaque transform, plutôt que sur .card-viewport :
+   un perspective sur l'ancêtre force un contexte de rendu 3D permanent sur .card,
+   ce qui casse le clip-path/border-radius de .card-mask (bug Chrome/Edge : les coins
+   du haut redeviennent carrés). En le mettant dans le transform lui-même, l'effet de
+   profondeur est conservé mais le masque clippe à nouveau correctement. */
+.stage[data-active="A"] .card.card-a{ transform: perspective(1600px) translateX(0) rotateY(0deg) scale(1); opacity:1;}
+.stage[data-active="A"] .card.card-b{ transform: perspective(1600px) translateX(40px) rotateY(35deg) scale(0.92); opacity:0;}
+.stage[data-active="B"] .card.card-b{ transform: perspective(1600px) translateX(0) rotateY(0deg) scale(1); opacity:1;}
+.stage[data-active="B"] .card.card-a{ transform: perspective(1600px) translateX(-40px) rotateY(-35deg) scale(0.92); opacity:0;}
+
+/* L'ordre d'empilement et le clic se pilotent sur le masque (le vrai
+   élément frère non transformé), pas sur la carte animée à l'intérieur. */
+.stage[data-active="A"] .mask-a{ z-index:2; pointer-events:auto; }
+.stage[data-active="A"] .mask-b{ z-index:1; pointer-events:none; }
+.stage[data-active="B"] .mask-b{ z-index:2; pointer-events:auto; }
+.stage[data-active="B"] .mask-a{ z-index:1; pointer-events:none; }
 
 /* ============ CARD A ============ */
 .card-a{
@@ -100,9 +142,14 @@ body{
 }
 .card-a .photo-wrap{
   position:relative;
-  width:100%;
-  height:260px;
+  width:calc(100% - 20px);
+  height:240px;
+  margin:10px auto 0;
   flex:0 0 auto;
+  border-radius:18px;
+  overflow:hidden;
+  clip-path: inset(0 round 18px); /* clip fiable même sous transform 3D (bug Edge/Chrome) */
+  isolation:isolate; /* garantit que le bookmark reste au-dessus de la photo, quel que soit le navigateur */
 }
 .card-a .photo-wrap img{
   width:100%;
@@ -111,25 +158,34 @@ body{
   display:block;
 }
 
-/* Bookmark flottant carte A : fond blanc semi-transparent, icône sombre */
+/* Bookmark flottant carte A : fond sombre semi-transparent, icône claire.
+   Pas de backdrop-filter : combiné aux transforms 3D des cartes, il peut
+   faire disparaître l'élément sous Safari (bug connu) — un fond opaque
+   suffit visuellement et reste fiable partout. */
 .bookmark-btn{
   position:absolute;
-  top:14px;
-  right:14px;
-  width:34px;
-  height:34px;
+  top:12px;
+  right:12px;
+  width:36px;
+  height:36px;
   border-radius:50%;
-  backdrop-filter: blur(6px);
   border:none;
   display:flex;
   align-items:center;
   justify-content:center;
   cursor:pointer;
+  z-index:20;
+  opacity:1;
+  visibility:visible;
+  transition: transform 0.15s ease, background 0.2s ease;
 }
-.bookmark-btn svg{ width:16px; height:16px; }
+.bookmark-btn svg{ width:16px; height:16px; transition: fill 0.2s ease; }
 .bookmark-btn.light{
-  background:rgba(53, 52, 52, 0.88);
+  background:rgba(30, 29, 28, 0.92);
 }
+.bookmark-btn:active{ transform:scale(0.9); }
+/* Favori actif : l'icône se remplit (comme un bookmark "rempli") */
+.bookmark-btn.is-active svg{ fill:#fff; }
 
 .card-a .info{
   padding:16px 18px 14px;
@@ -213,11 +269,27 @@ body{
 .card-a .btn-contact{
   background:#121211;
   color:#fff;
+  font-weight: 500;
 }
 
 /* ============ CARD B ============ */
+/* Le fond blanc de .card-b EST la bordure : comme .card-b remplit tout
+   .card-mask (inset:0), tout ce qui n'est pas recouvert par .photo-card
+   reste blanc et visible sur les 4 côtés. */
 .card-b{
-  background:#0c0e0a;
+  background:#fff;
+}
+
+/* Zone clippée : photo + scrim + texte du haut. Marge de 10px en haut/
+   gauche/droite (comme card-a), et 54px en bas pour laisser la place
+   au bouton qui va déborder par-dessus. */
+.card-b .photo-card{
+  position:absolute;
+  top:10px; left:10px; right:10px;
+  bottom:18px;
+  border-radius:18px;
+  overflow:hidden;
+  clip-path: inset(0 round 18px); /* clip fiable même sous transform 3D (bug Edge/Chrome) */
 }
 .card-b .photo-wrap{
   position:absolute;
@@ -237,7 +309,7 @@ body{
 }
 .card-b .content{
   position:absolute;
-  left:0; right:0; bottom:0;
+  left:0; right:0; bottom:50px;
   padding:16px 16px 16px;
   display:flex;
   flex-direction:column;
@@ -251,33 +323,45 @@ body{
 .card-b .stat .val{ color:#fff; }
 .card-b .stat .lbl{ color:rgba(255,255,255,0.55); }
 
+/* Bouton + bookmark : sortis de .photo-card, positionnés en absolu par
+   rapport à .card-b. bottom:10px + hauteur ~42px du bouton fait déborder
+   son sommet d'une quinzaine de px par-dessus .photo-card (qui s'arrête
+   à 54px du bas), exactement comme sur la référence. */
 .card-b .bottom-row{
+  position:absolute;
+  left:20px; right:20px; bottom:30px;
   display:flex;
   align-items:center;
   gap:10px;
-  margin-top:6px;
+  z-index:5;
 }
 .card-b .btn-contact{
   flex:1;
   background:#fff;
   color:#15140F;
+  height: 36px;
+  font-size: 12px;
+  box-shadow:0 6px 16px -6px rgba(0,0,0,0.35); /* petite ombre pour bien détacher le bouton du fond */
 }
 
-/* Bouton bookmark carré carte B : glassmorphism, icône blanche */
+/* Bouton bookmark carré carte B : fond sombre semi-transparent (sans
+   backdrop-filter, pour rester fiable sous les transforms 3D) */
 .card-b .icon-btn{
   width:42px;
-  height:42px;
+  height:36px;
   flex:0 0 auto;
   border-radius:13px;
-  background:rgba(255,255,255,0.14);
-  border:1px solid rgba(255,255,255,0.18);
-  backdrop-filter:blur(6px);
+  background:rgba(255,255,255,0.16);
+  border:1px solid rgba(255,255,255,0.22);
   display:flex;
   align-items:center;
   justify-content:center;
   cursor:pointer;
+  transition: transform 0.15s ease, background 0.2s ease;
 }
-.card-b .icon-btn svg{ width:16px; height:16px; }
+.card-b .icon-btn svg{ width:16px; height:16px; transition: fill 0.2s ease; }
+.card-b .icon-btn:active{ transform:scale(0.9); }
+.card-b .icon-btn.is-active svg{ fill:#fff; }
 
 /* ---------- Switch A / B ---------- */
 .switcher{
@@ -314,10 +398,28 @@ body{
   outline-offset:3px;
 }
 
-.switch-track{
-  width:1px;
-  height:28px;
-  background:rgba(28,27,24,0.18);
+/* Flèche directionnelle qui remplace le trait séparateur :
+   pointe vers A ou vers B selon la carte active, avec transition fluide */
+.switch-arrow{
+  width:26px;
+  height:26px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--ink-soft);
+  transition: transform 0.45s cubic-bezier(.65,0,.35,1), color 0.3s ease;
+}
+.switch-arrow svg{ width:100%; height:100%; }
+
+/* A actif : la flèche pointe vers A (gauche) */
+.stage[data-active="A"] .switch-arrow{
+  transform: rotate(180deg);
+  color: var(--ink);
+}
+/* B actif : la flèche pointe vers B (droite) */
+.stage[data-active="B"] .switch-arrow{
+  transform: rotate(0deg);
+  color: var(--ink);
 }
 
 /* ---------- Footer ---------- */
@@ -333,13 +435,14 @@ body{
   gap:10px;
 }
 .author img{
-  width:36px;
-  height:36px;
+  width:44px;
+  height:44px;
   border-radius:50%;
   object-fit:cover;
+  flex:0 0 auto;
 }
-.author .name{ font-size:13px; font-weight:700; }
-.author .handle{ font-size:11.5px; color:var(--ink-soft); }
+.author .name{ font-size:14.5px; font-weight:700; }
+.author .handle{ font-size:12.5px; color:var(--ink-soft); }
 
 .save-later{
   display:flex;
@@ -347,19 +450,41 @@ body{
   gap:7px;
   font-size:12.5px;
   color:var(--ink-soft);
+  background:none;
+  border:none;
+  cursor:pointer;
+  font-family:inherit;
+  padding:4px 2px;
 }
-/* Carré noir avec checkmark blanc */
+/* Carré : vide par défaut, se remplit en noir avec checkmark seulement au clic */
 .save-later .check{
   width:16px;
   height:16px;
   border-radius:4px;
-  background:var(--ink);
+  border:1.5px solid rgba(28,27,24,0.32);
+  background:transparent;
   display:flex;
   align-items:center;
   justify-content:center;
   flex:0 0 auto;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
-.save-later .check svg{ width:10px; height:10px; }
+.save-later .check svg{
+  width:10px;
+  height:10px;
+  opacity:0;
+  transform:scale(0.6);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.save-later[aria-pressed="true"] .check{
+  background:var(--ink);
+  border-color:var(--ink);
+}
+.save-later[aria-pressed="true"] .check svg{
+  opacity:1;
+  transform:scale(1);
+}
+.save-later[aria-pressed="true"]{ color:var(--ink); }
 
 @media (max-width:480px){
   .frame{ padding:24px 14px 32px; border-radius:20px; }
@@ -367,6 +492,12 @@ body{
 
   /* Card plus large sur mobile pour que le texte respire */
   .card-viewport{ width: min(88vw, 300px); height: 440px; }
+
+  /* Remonte la photo de la acrte A en reduissant sa marge du haut*/
+  .card-a .photo-wrap{
+    margin-top: 0;
+  }
+  /* .. reste inchangé ..*/
 
   /* Bio : taille réduite et line-height généreux pour éviter le débordement */
   .bio{
